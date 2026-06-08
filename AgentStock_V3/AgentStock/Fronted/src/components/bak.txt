@@ -1,0 +1,215 @@
+<template>
+  <el-container direction="vertical">
+    <el-header>
+      <h2>📈 股票 K 线图</h2>
+    </el-header>
+    <el-main>
+      <!-- 加载状态：覆盖在内容上方，不影响数据初始化 -->
+      <div v-if="loading" style="text-align: center; padding: 50px; position: relative; z-index: 10;">
+        <el-icon class="is-loading" size="30">
+          <LoadingIcon />
+        </el-icon>
+        <p style="margin-top: 10px;">正在加载股票数据...</p>
+      </div>
+      
+      <!-- 错误状态：数据加载失败时显示 -->
+      <el-alert
+        v-if="error && !loading"
+        :title="error"
+        type="warning"
+        show-icon
+        style="margin-bottom: 20px;"
+      />
+      
+      <!-- 数据展示：即使loading时也初始化组件（确保默认数据能渲染） -->
+      <el-card v-if="!loading || priceData.length > 0">
+        <h3>股票 {{ stockId }}: {{ stockName }}</h3>
+        <!-- K线图：初始用默认数据渲染，请求成功后自动更新 -->
+        <div style="height: 300px; margin-bottom: 20px;">
+          <v-chart :option="priceChartOption" autoresize />
+        </div>
+        
+        <!-- 每日价格表格：与K线图数据同步 -->
+        <el-table :data="priceData" border style="width: 100%">
+          <el-table-column prop="day" label="天数" width="80" />
+          <el-table-column prop="open" label="开盘价" />
+          <el-table-column prop="close" label="收盘价" />
+          <el-table-column prop="high" label="最高价" />
+          <el-table-column prop="low" label="最低价" />
+        </el-table>
+      </el-card>
+    </el-main>
+  </el-container>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { use } from 'echarts/core'
+import VChart from 'vue-echarts'
+// 1. 修复：K线图必需 CandlestickChart（K线核心）和 LineChart（兼容备用）
+import { CandlestickChart, LineChart } from 'echarts/charts'
+import { CanvasRenderer } from 'echarts/renderers'
+// 2. 修复：还原 XAxisComponent/YAxisComponent（坐标轴核心组件，之前被移除导致渲染失败）
+import { 
+  XAxisComponent, 
+  YAxisComponent, 
+  TooltipComponent, 
+  GridComponent, 
+  TitleComponent 
+} from 'echarts/components'
+import { Loading as LoadingIcon } from '@element-plus/icons-vue'
+import http from '../utils/http'
+
+// 3. 修复：注册所有必需组件（缺失坐标轴组件会导致K线图空白）
+use([
+  CandlestickChart,
+  LineChart, // 兼容处理，避免极端场景下图表异常
+  XAxisComponent, // 横轴组件（必需）
+  YAxisComponent, // 纵轴组件（必需）
+  TooltipComponent,
+  GridComponent,
+  TitleComponent,
+  CanvasRenderer
+])
+
+// 从父组件接收股票ID
+const props = defineProps({
+  stockId: {
+    type: Number,
+    required: true
+  }
+})
+
+// 组件内部状态管理
+const stockName = ref('')
+const priceData = ref([])
+const loading = ref(true)
+const error = ref('')
+
+// 设置默认数据（独立函数，便于复用）
+const setDefaultData = () => {
+  stockName.value = '默认股票 (数据加载失败)'
+  priceData.value = [
+    { day: 1, open: 100, close: 102, high: 105, low: 99 },
+    { day: 2, open: 102, close: 105, high: 107, low: 101 },
+    { day: 3, open: 105, close: 103, high: 106, low: 102 },
+    { day: 4, open: 103, close: 108, high: 110, low: 102 },
+    { day: 5, open: 108, close: 106, high: 109, low: 105 }
+  ]
+}
+
+// 4. 关键修复：组件初始化时就注入默认数据（确保priceData不空白）
+setDefaultData()
+
+// 获取股票 K 线数据
+const fetchStockData = async () => {
+  try {
+    loading.value = true
+    error.value = ''
+    
+    // 使用父组件传递的 stockId 请求数据
+    const response = await http.get(`/api/stock_data/${props.stockId}`)
+    
+    // 接口成功：用真实数据覆盖默认数据
+    if (response.data.status === 'success' && response.data.data.priceData.length > 0) {
+      stockName.value = response.data.data.stockName
+      priceData.value = response.data.data.priceData // 覆盖默认数据
+    } else {
+      // 接口返回失败（如无数据）：保留默认数据，显示错误提示
+      error.value = response.data.message || '获取股票数据失败（无有效数据）'
+    }
+  } catch (err) {
+    // 网络错误：保留默认数据，显示网络错误提示
+    console.error('获取股票数据失败:', err)
+    error.value = '网络请求失败（请检查网络连接）'
+  } finally {
+    // 无论成功/失败，都结束加载状态
+    loading.value = false
+  }
+}
+
+// K线图配置（基于响应式数据，数据更新时自动重新计算）
+const priceChartOption = computed(() => {
+  return {
+    title: {
+      text: `${stockName.value} K线图`,
+      left: 'center'
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'shadow'
+      },
+      formatter: params => {
+        const data = params[0]?.data || [] // 兼容空数据场景
+        return `
+          天数: ${params[0]?.name || '未知'}<br/>
+          开盘: ${data[0] || 0}<br/>
+          最高: ${data[3] || 0}<br/>
+          最低: ${data[2] || 0}<br/>
+          收盘: ${data[1] || 0}
+        `
+      }
+    },
+    grid: {
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      data: priceData.value.map(item => item.day),
+      boundaryGap: false
+    },
+    yAxis: {
+      type: 'value',
+      name: '价格',
+      scale: true // 自动适配价格范围，避免K线显示异常
+    },
+    series: [
+      {
+        name: 'K线',
+        type: 'candlestick',
+        data: priceData.value.map(item => [
+          item.open,
+          item.close,
+          item.low,
+          item.high
+        ]),
+        itemStyle: {
+          color: '#ef232a', // 上涨颜色（收盘>开盘）
+          color0: '#14b143', // 下跌颜色（收盘≤开盘）
+          borderColor: '#ef232a',
+          borderColor0: '#14b143'
+        },
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 10,
+            shadowColor: 'rgba(0,0,0,0.3)' //  hover时阴影效果，提升交互体验
+          }
+        }
+      }
+    ]
+  }
+})
+
+// 组件挂载时触发数据请求
+onMounted(() => {
+  fetchStockData()
+})
+</script>
+
+<style scoped>
+el-header {
+  margin-bottom: 20px;
+}
+/* 加载状态样式优化：避免遮挡图表 */
+.is-loading {
+  animation: spin 1.5s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+</style>
