@@ -1,17 +1,16 @@
 # 项目名称
-
+多智能体交易竞技场：面向股票市场的语言驱动交易系统
 ## 项目简介
 一句话说明项目是什么、解决什么问题。
 
 ## 方向
-（方向一：Agentic AI 原生开发 / 方向二：企业级应用软件的 Agent 改造）
+Agentic AI 原生开发
 
 ## 技术栈
 - AI IDE: Trae CN
 - LLM: DeepSeek API
 - 框架: LangGraph
 - 容器: Docker
-- ...
 
 ## 目录结构
 简要说明 src/ 下各模块的职责。
