@@ -1,7 +1,14 @@
+import os
+
 import redis
 
 class RedisService:
-    def __init__(self, host='120.92.20.105', port=26356, password='C2025xTkSbRi%xQtFkEX98BQR3yQ==', db=0):
+    def __init__(self, host=None, port=None, password=None, db=None):
+        host = host or os.getenv("REDIS_HOST", "localhost")
+        port = int(port or os.getenv("REDIS_PORT", "6379"))
+        password = password if password is not None else os.getenv("REDIS_PASSWORD")
+        db = int(db if db is not None else os.getenv("REDIS_DB", "0"))
+
         self.r = redis.StrictRedis(
             host=host,
             port=port,

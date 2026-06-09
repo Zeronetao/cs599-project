@@ -18,7 +18,22 @@ import google.generativeai as genai
 # 禁用代理设置，直接连接API
 # os.environ['http_proxy'] = f'{proxy_url}:{proxy_port}'
 # os.environ['https_proxy'] = f'{proxy_url}:{proxy_port}'
-openai.api_key = ""
+openai.api_key = os.getenv("OPENAI_API_KEY", "")
+
+
+def _require_env(name):
+    value = os.getenv(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+def _openai_client(api_key_env, base_url_env=None, default_base_url=None):
+    kwargs = {"api_key": _require_env(api_key_env)}
+    base_url = os.getenv(base_url_env) if base_url_env else default_base_url
+    if base_url:
+        kwargs["base_url"] = base_url
+    return OpenAI(**kwargs)
 
 
 def temp_sleep(seconds=0.1):  # 进一步减少等待时间从0.1秒到0.01秒
@@ -65,10 +80,11 @@ def GPT4_request(prompt):
 
 def qwen_request(prompt):
     try:
-        openai = OpenAI(
-    api_key="sk-01955ed7b6f6406bb4e5ce528fe68882",
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-)
+        openai = _openai_client(
+            "DASHSCOPE_API_KEY",
+            "DASHSCOPE_BASE_URL",
+            "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        )
 
         chat_completion = openai.chat.completions.create(
             model="qwen-vl-max",
@@ -83,10 +99,10 @@ def qwen_request(prompt):
 
 def qwenvl_vision(prompt, image_url1, image_url2, image_url3, image_url4, image_url5 ):#
     try:
-        client = OpenAI(
-            # 若没有配置环境变量，请用百炼API Key将下行替换为：api_key="sk-xxx",
-            api_key="sk-4a5c652a71954c55ada74abfed16dcb5",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        client = _openai_client(
+            "DASHSCOPE_API_KEY",
+            "DASHSCOPE_BASE_URL",
+            "https://dashscope.aliyuncs.com/compatible-mode/v1",
         )
         completion = client.chat.completions.create(
             model="qwen-vl-max",  # 此处以qwen-vl-plus为例，可按需更换模型名称。模型列表：https://help.aliyun.com/zh/model-studio/getting-started/models
@@ -111,10 +127,10 @@ def qwenvl_vision(prompt, image_url1, image_url2, image_url3, image_url4, image_
 
 def qwenvl(prompt):#
     try:
-        client = OpenAI(
-            # 若没有配置环境变量，请用百炼API Key将下行替换为：api_key="sk-xxx",
-            api_key="sk-273c8acde88b4f53972c8cc707cccdeb",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        client = _openai_client(
+            "DASHSCOPE_API_KEY",
+            "DASHSCOPE_BASE_URL",
+            "https://dashscope.aliyuncs.com/compatible-mode/v1",
         )
         completion = client.chat.completions.create(
             model="qwen-vl-max",  # 此处以qwen-vl-plus为例，可按需更换模型名称。模型列表：https://help.aliyun.com/zh/model-studio/getting-started/models
@@ -134,8 +150,7 @@ def qwenvl(prompt):#
 
 
 def gemini(prompt):
-    GOOGLE_API_KEY='AIzaSyDVQRVLHUwu4nrAbrl6inun24y1Q4gp4rc'
-    genai.configure(api_key=GOOGLE_API_KEY)
+    genai.configure(api_key=_require_env("GOOGLE_API_KEY"))
     model = genai.GenerativeModel(model_name="gemini-1.5-pro")
     generation_config = {
     "temperature": 1.4
@@ -145,8 +160,7 @@ def gemini(prompt):
     return response.text 
  
 def gemini_3images_request(prompt, image_url1,image_url2,image_url3,image_url4,image_url5):
-    GOOGLE_API_KEY='AIzaSyDDmfx3iQCjCzf4vP-b4qO_XYVnaQzYOgY'
-    genai.configure(api_key=GOOGLE_API_KEY)
+    genai.configure(api_key=_require_env("GOOGLE_API_KEY"))
     model = genai.GenerativeModel(model_name="gemini-1.5-pro")
     response = model.generate_content([prompt,image_url1,image_url2,image_url3,image_url4,image_url5])
     return response.text
@@ -154,7 +168,7 @@ def gemini_3images_request(prompt, image_url1,image_url2,image_url3,image_url4,i
 import os
 def GPT4o_3images_request(prompt, image_url1, image_url2, image_url3, image_url4, image_url5 ):#
     try:
-        client = os.getenv("OPENAI_API_KEY", "")
+        client = _openai_client("OPENAI_API_KEY")
         chat_completion = client.chat.completions.create(
               model="gpt-4o-mini-2024-07-18",#"gpt-4o-mini-2024-07-18",
               messages=[
@@ -182,7 +196,7 @@ def GPT4o_3images_request(prompt, image_url1, image_url2, image_url3, image_url4
     
 def ChatGPT_request(prompt):
     try:
-        client = OpenAI( api_key = openai_api_key )#gpt-3.5-turbo
+        client = _openai_client("OPENAI_API_KEY")#gpt-3.5-turbo
         completion = client.chat.completions.create(
             model="gpt-4o-mini-2024-07-18", messages=[{"role" : "user", "content": prompt}],
              #temperature=0.5,
@@ -195,10 +209,11 @@ def ChatGPT_request(prompt):
 
 def liama3_request(prompt):
     try:
-        openai = OpenAI(
-    api_key="3YLqqmXgWY0igz6oLObgSRe7hANhpu4G",
-    base_url="https://api.deepinfra.com/v1/openai",
-)
+        openai = _openai_client(
+            "DEEPINFRA_API_KEY",
+            "DEEPINFRA_BASE_URL",
+            "https://api.deepinfra.com/v1/openai",
+        )
 
         chat_completion = openai.chat.completions.create(
     model="meta-llama/Meta-Llama-3-70B-Instruct",
@@ -211,11 +226,11 @@ def liama3_request(prompt):
         return "ChatGPT ERROR"
         
 def deepseek3v(prompt):
-   # client = OpenAI(api_key="sk-5db9f88610024e958eb224fb160e718e", base_url="https://api.deepseek.com")
-    client = OpenAI(
-    api_key="euYxF1xblcpXY6abm6rmDHLfWdMlprnH",
-    base_url="https://api.deepinfra.com/v1/openai",
-)
+    client = _openai_client(
+        "DEEPINFRA_API_KEY",
+        "DEEPINFRA_BASE_URL",
+        "https://api.deepinfra.com/v1/openai",
+    )
 
     response = client.chat.completions.create(
         model="deepseek-ai/DeepSeek-R1",#"deepseek-chat",
@@ -228,11 +243,11 @@ def deepseek3v(prompt):
     return response.choices[0].message.content
     
 def deepseek3v_3image(prompt, image_url1, image_url2, image_url3, image_url4, image_url5):
-    #client = OpenAI(api_key="sk-9153795d09cd41beba5dfbe702d584ce", base_url="https://api.deepseek.com")
-    client = OpenAI(
-    api_key="euYxF1xblcpXY6abm6rmDHLfWdMlprnH",
-    base_url="https://api.deepinfra.com/v1/openai",
-)
+    client = _openai_client(
+        "DEEPINFRA_API_KEY",
+        "DEEPINFRA_BASE_URL",
+        "https://api.deepinfra.com/v1/openai",
+    )
     content = f"{prompt}\nImage: {image_url1}\nImage: {image_url2}\nImage: {image_url3}\nImage: {image_url4}\nImage: {image_url5}"
     messages = [
         {"role": "user", "content": content},
