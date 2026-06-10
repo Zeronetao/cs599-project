@@ -137,9 +137,7 @@ python -m venv .venv
 pip install django django-cors-headers redis openai timeout-decorator pillow google-generativeai pandas numpy matplotlib mplfinance openpyxl
 ```
 
-如需运行完整 LLM 仿真，需要配置对应模型服务的 API Key。建议使用环境变量或本地未入库配置文件，不要将 Key 写入代码。
-
-可参考仓库根目录的 `.env.example` 配置以下变量：
+如需运行完整 LLM 仿真，需要配置对应模型服务的 API Key。可参考以下变量：
 
 ```text
 DJANGO_SECRET_KEY=
